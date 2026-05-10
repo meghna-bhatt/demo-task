@@ -1,0 +1,12 @@
+
+node -v
+ npm install -g @shopify/cli @shopify/theme
+
+
+shopify version
+shopify login
+shopify theme pull
+shopify theme dev
+
+shopify theme push
+shopify theme push --theme 195139600711

@@ -1,0 +1,53 @@
+<style>
+  .announcement-bar {
+    background-color: {{ section.settings.background_color }};
+    color: {{ section.settings.text_color }};
+    padding: 10px 0;
+    text-align: center;
+    font-size: 0.9rem;
+    font-weight: 500;
+  }
+  .announcement-bar a {
+    color: {{ section.settings.text_color }};
+    text-decoration: underline;
+  }
+  .announcement-bar a:hover {
+    opacity: 0.8;
+  }
+</style>
+
+<div class="announcement-bar">
+  {{ section.settings.announcement_text }}
+</div>
+
+{% schema %}
+{
+  "name": "Announcement Bar",
+  "settings": [
+    {
+      "type": "color",
+      "id": "background_color",
+      "label": "Background Color",
+      "default": "#000000"
+    },
+    {
+      "type": "color",
+      "id": "text_color",
+      "label": "Text Color",
+      "default": "#ffffff"
+    },
+    {
+      "type": "text",
+      "id": "announcement_text",
+      "label": "Announcement Text",
+      "default": "Welcome to our store! Free shipping on orders over $50."
+    }
+  ],
+  "presets": [
+    {
+        "name": "Announcement Bar",
+        "category": "Header"
+    }
+  ]
+}
+{% endschema %}

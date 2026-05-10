@@ -1,0 +1,119 @@
+{%- assign logo = section.settings.logo -%}
+
+{%- assign logo_w = section.settings.logo_width | default: 150 -%}
+
+{%- if logo != blank and logo.aspect_ratio != blank -%}
+  {%- assign logo_aspect = logo.aspect_ratio -%}
+{%- else -%}
+  {%- assign logo_aspect = 1 -%}
+{%- endif -%}
+
+{%- assign logo_h = logo_w | divided_by: logo_aspect | round -%}
+{%- assign logo_w_2x = logo_w | times: 2 -%}
+
+<header class="header" id="site-header">
+  <div class="container">
+    <div class="header-content">
+
+      <!-- Mobile Hamburger -->
+      <button type="button" class="hamburger" id="hamburgerBtn" aria-controls="mobileMenu" aria-expanded="false"
+        aria-label="Toggle menu" title="Toggle menu" onclick="toggleMenu()">☰</button>
+
+       <!-- Logo -->
+       <div class="logo">
+        <a href="{{ routes.root_url }}">
+
+          {% if logo != blank %}
+            <img
+              src="{{ logo | image_url: width: logo_w }}"
+              srcset="{{ logo | image_url: width: logo_w }} 1x, {{ logo | image_url: width: logo_w_2x }} 2x"
+              width="{{ logo_w }}"
+              height="{{ logo_h }}"
+              alt="{{ shop.name | escape }}"
+              loading="eager"
+              fetchpriority="high"
+              decoding="async"
+            >
+          {% else %}
+            <span class="site-name">{{ shop.name }}</span>
+          {% endif %}
+
+        </a>
+      </div>
+      <!-- Desktop Menu -->
+      <nav class="primary-nav" aria-label="Primary">
+        <ul class="nav-menu">
+          {% for link in linklists[section.settings.menu].links %}
+          <li><a href="{{ link.url }}">{{ link.title }}</a></li>
+          {% endfor %}
+        </ul>
+      </nav>
+
+      <!-- Actions -->
+      <div class="header-actions">
+        <a href="{{ routes.cart_url }}" class="cart-icon" aria-label="Cart" title="Cart">
+          {% if cart.item_count > 0 %}
+          <span class="cart-count">{{ cart.item_count }}</span>
+          {% endif %}
+        </a>
+      </div>
+
+    </div>
+
+    <!-- Mobile Menu -->
+    <nav class="mobile-menu" id="mobileMenu" aria-label="Mobile">
+      {% for link in linklists[section.settings.menu].links %}
+      <a href="{{ link.url }}">{{ link.title }}</a>
+      {% endfor %}
+    </nav>
+  </div>
+</header>
+
+<script>
+  function toggleMenu() {
+    var menu = document.getElementById("mobileMenu");
+    var btn = document.getElementById("hamburgerBtn");
+    if (!menu) return;
+    var isOpen = menu.style.display === "flex";
+    menu.style.display = isOpen ? "none" : "flex";
+    if (btn) btn.setAttribute("aria-expanded", String(!isOpen));
+  }
+
+  // Sticky shrink effect
+  window.addEventListener("scroll", function () {
+    var header = document.getElementById("site-header");
+    if (window.scrollY > 50) {
+      header.classList.add("shrink");
+    } else {
+      header.classList.remove("shrink");
+    }
+  });
+</script>
+
+{% schema %}
+{
+  "name": "Header",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "Logo"
+    },
+    {
+      "type": "range",
+      "id": "logo_width",
+      "label": "Logo Width",
+      "min": 80,
+      "max": 250,
+      "step": 10,
+      "default": 150
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "label": "Menu",
+      "default": "main-menu"
+    }
+  ]
+}
+{% endschema %}

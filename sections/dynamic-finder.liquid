@@ -1,0 +1,267 @@
+{% assign gd = section.settings.grid_columns_desktop | default: 3 %}
+{% assign g480 = gd %}
+{% if g480 > 2 %}
+  {% assign g480 = 2 %}
+{% endif %}
+{% assign g768 = gd %}
+{% if g768 > 3 %}
+  {% assign g768 = 3 %}
+{% endif %}
+
+<div class="container">
+  <div
+    class="finder finder-{{ section.id }}{% if section.settings.results_layout == 'list' %} finder-dynamic--layout-list{% else %} finder-dynamic--layout-grid{% endif %}"
+    style="--gf-cols-m: 1; --gf-cols-sm: {{ g480 }}; --gf-cols-md: {{ g768 }}; --gf-cols-lg: {{ gd }};"
+    data-dynamic-finder
+    data-section-id="{{ section.id }}">
+    <h2>{{ section.settings.heading }}</h2>
+    {% assign collection = collections[section.settings.collection] %}
+    {% assign finder_product_limit = section.settings.product_limit | default: 24 %}
+    {% if finder_product_limit > 48 %}
+      {% assign finder_product_limit = 48 %}
+    {% elsif finder_product_limit < 4 %}
+      {% assign finder_product_limit = 4 %}
+    {% endif %}
+
+    <!-- filter dropdowns-->
+    <div class="finder-controls">
+      <div class="dropdowns">
+      {% for block in section.blocks %}
+        <select id="filter-{{ section.id }}-{{ block.id }}" aria-label="{{ block.settings.label | escape }}">
+          <option value="">{{ block.settings.label }}</option>
+          {% assign option_values = '|' %}
+          {% if collection and collection.products_count > 0 %}
+            {% for product in collection.products limit: finder_product_limit %}
+              {% assign mf = product.metafields.custom[block.settings.key] %}
+              {% if mf != nil %}
+                {% if mf.type == 'boolean' %}
+                  {% assign raw_values = mf.value | json | replace: '"', '' %}
+                {% elsif mf.type contains 'list.' %}
+                  {% assign raw_values = mf.value | join: ',' %}
+                {% else %}
+                  {% assign raw_values = mf.value | default: mf %}
+                {% endif %}
+
+                {% assign pieces = raw_values | replace: ';', ',' | split: ',' %}
+                {% for piece in pieces %}
+                  {% assign option_text = piece | strip %}
+                  {% if option_text != blank %}
+                    {% assign option_token = '|' | append: option_text | append: '|' %}
+                    {% unless option_values contains option_token %}
+                      {% assign option_values = option_values | append: option_text | append: '|' %}
+                    {% endunless %}
+                  {% endif %}
+                {% endfor %}
+              {% endif %}
+            {% endfor %}
+          {% endif %}
+
+          {% assign options = option_values | split: '|' | sort %}
+          {% for option in options %}
+            {% if option != blank %}
+              <option value="{{ option | escape }}">{{ option | escape }}</option>
+            {% endif %}
+          {% endfor %}
+        </select>
+      {% endfor %}
+      </div>
+
+      <div class="filter-actions">
+        <button class="btn" id="apply-{{ section.id }}" type="button" aria-label="{{ section.settings.apply_button_label | default: 'Apply Filters' | escape }}" title="{{ section.settings.apply_button_label | default: 'Apply Filters' | escape }}">{{ section.settings.apply_button_label | default: 'Apply Filters' }}</button>
+        <button class="btn clear" id="clear-{{ section.id }}" type="button" aria-label="{{ section.settings.clear_button_label | default: 'Clear' | escape }}" title="{{ section.settings.clear_button_label | default: 'Clear' | escape }}">{{ section.settings.clear_button_label | default: 'Clear' }}</button>
+      </div>
+    </div>
+
+    <p id="result-count-{{ section.id }}" class="result-count"></p>
+    <p id="empty-state-{{ section.id }}" class="empty-state">Select filters and click Apply</p>
+
+    <div id="results-{{ section.id }}" class="results-grid"></div>
+  </div>
+
+  <div id="toast-{{ section.id }}" class="toast"></div>
+</div>
+<script type="application/json" id="dynamic-finder-data-{{ section.id }}">
+{
+  "sectionId": {{ section.id | json }},
+  "emptyDefaultMessage": {{ 'Select filters and click Apply' | json }},
+  "noMatchMessage": {{ 'No match found' | json }},
+  "labels": {
+    "addToCart": {{ section.settings.add_to_cart_label | default: 'Add to Cart' | json }},
+    "buyNow": {{ section.settings.buy_now_label | default: 'Buy Now' | json }}
+  },
+  "cardMetaFields": [
+    {% assign cm_first = true %}
+    {% for block in section.blocks %}
+      {% if cm_first %}{% assign cm_first = false %}{% else %},{% endif %}
+      { "key": {{ block.settings.key | json }}, "label": {{ block.settings.label | json }} }
+    {% endfor %}
+  ],
+  "filters": [
+    {% assign fl_first = true %}
+    {% for block in section.blocks %}
+      {% if fl_first %}{% assign fl_first = false %}{% else %},{% endif %}
+      { "blockId": {{ block.id | json }}, "key": {{ block.settings.key | json }} }
+    {% endfor %}
+  ],
+  "products": [
+    {% if collection and collection.products_count > 0 %}
+      {% assign pr_first = true %}
+      {% for product in collection.products limit: finder_product_limit %}
+        {% if pr_first %}{% assign pr_first = false %}{% else %},{% endif %}
+        {
+          "id": {{ product.selected_or_first_available_variant.id | default: product.variants.first.id | json }},
+          "handle": {{ product.handle | json }},
+          "title": {{ product.title | json }},
+          "url": {{ product.url | json }},
+          "image": {% if product.featured_image != blank %}{{ product.featured_image | image_url: width: 600 | json }}{% else %}""{% endif %},
+          "price": {{ product.price | money | json }},
+          "option_names": [
+            {% for option in product.options_with_values %}
+              { "name": {{ option.name | json }}, "position": {{ forloop.index }} }{% unless forloop.last %},{% endunless %}
+            {% endfor %}
+          ],
+          "variants": [
+            {% for variant in product.variants %}
+              {
+                "id": {{ variant.id | json }},
+                "title": {{ variant.title | json }},
+                "available": {{ variant.available | json }},
+                "option1": {{ variant.option1 | json }},
+                "option2": {{ variant.option2 | json }},
+                "option3": {{ variant.option3 | json }},
+                "price_cents": {{ variant.price }},
+                "image": {% if variant.image != blank %}{{ variant.image | image_url | json }}{% elsif product.featured_image != blank %}{{ product.featured_image | image_url | json }}{% else %}""{% endif %},
+                "price": {{ variant.price | money | json }}
+              }{% unless forloop.last %},{% endunless %}
+            {% endfor %}
+          ],
+          "metafields": {
+            {% assign mf_first = true %}
+            {% for block in section.blocks %}
+              {% assign mf = product.metafields.custom[block.settings.key] %}
+              {% assign meta_value = '' %}
+              {% if mf != nil %}
+                {% if mf.type == 'boolean' %}
+                  {% assign meta_value = mf.value | json | replace: '"', '' %}
+                {% elsif mf.type contains 'list.' %}
+                  {% assign meta_value = mf.value | join: ', ' %}
+                {% else %}
+                  {% assign meta_value = mf.value | default: mf %}
+                {% endif %}
+              {% endif %}
+              {% if mf_first %}{% assign mf_first = false %}{% else %},{% endif %}
+              {{ block.settings.key | json }}: {{ meta_value | json }}
+            {% endfor %}
+          }
+        }
+      {% endfor %}
+    {% endif %}
+  ]
+}
+</script>
+
+{% unless dynamic_finder_js_included %}
+  <script src="{{ 'dynamic-finder.js' | asset_url }}" defer></script>
+  {% assign dynamic_finder_js_included = true %}
+{% endunless %}
+
+
+{% schema %}
+{
+  "name": "Dynamic Product Finder",
+  "settings": [
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Select Collection"
+    },
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Find Your Device"
+    },
+    {
+      "type": "range",
+      "id": "product_limit",
+      "label": "Product Limit",
+      "info": "Each product is embedded in page JavaScript. Lower values load faster on mobile; ~24 is a good default.",
+      "min": 4,
+      "max": 48,
+      "step": 4,
+      "default": 24
+    },
+    {
+      "type": "select",
+      "id": "results_layout",
+      "label": "Results layout",
+      "options": [
+        { "value": "grid", "label": "Grid" },
+        { "value": "list", "label": "List" }
+      ],
+      "default": "grid",
+      "info": "List shows one row per product with thumbnail on the side."
+    },
+    {
+      "type": "range",
+      "id": "grid_columns_desktop",
+      "label": "Grid columns (large screens)",
+      "min": 1,
+      "max": 4,
+      "step": 1,
+      "default": 3,
+      "info": "At 990px and up. Tablet widths scale down automatically. Ignored when layout is List."
+    },
+    {
+      "type": "text",
+      "id": "apply_button_label",
+      "label": "Apply button label",
+      "default": "Apply Filters"
+    },
+    {
+      "type": "text",
+      "id": "clear_button_label",
+      "label": "Clear button label",
+      "default": "Clear"
+    },
+    {
+      "type": "text",
+      "id": "add_to_cart_label",
+      "label": "Add to cart button label",
+      "default": "Add to Cart"
+    },
+    {
+      "type": "text",
+      "id": "buy_now_label",
+      "label": "Buy now button label",
+      "default": "Buy Now"
+    }
+  ],
+  "blocks": [
+    {
+      "type": "filter",
+      "name": "Filter",
+      "settings": [
+        {
+          "type": "text",
+          "id": "label",
+          "label": "Filter Label",
+          "default": "Scenario"
+        },
+        {
+          "type": "text",
+          "id": "key",
+          "label": "Product Metafield Key",
+          "default": "scenario",
+          "info": "Enter the custom product metafield key (namespace custom). The same keys drive filters and the meta rows on each product card."
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Dynamic Product Finder"
+    }
+  ]
+}
+{% endschema %}

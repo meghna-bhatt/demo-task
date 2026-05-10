@@ -1,0 +1,25 @@
+{
+  "name": "Header Group",
+  "type": "header",
+  "sections": {
+    "announcement-bar": {
+      "type": "announcement-bar",
+      "settings": {
+        "background_color": "#000000",
+        "text_color": "#ffffff",
+        "announcement_text": "Welcome to our store!"
+      }
+    },
+    "header": {
+      "type": "header",
+      "settings": {
+        "menu": "main-menu",
+        "logo_width": 150
+      }
+    }
+  },
+  "order": [
+    "announcement-bar",
+    "header"
+  ]
+}

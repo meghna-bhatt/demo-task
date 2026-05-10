@@ -1,0 +1,372 @@
+<style>
+  .product-page-description > *:first-child {
+    margin-top: 0;
+  }
+
+  .product-page-description > *:last-child {
+    margin-bottom: 0;
+  }
+</style>
+
+<div class="container">
+  <div class="product-page">
+    <div class="product-page-media">
+      <img
+        id="product-page-image"
+        src="{{ product.selected_or_first_available_variant.image | default: product.featured_image | image_url: width: 900 }}"
+        alt="{{ product.title | escape }}"
+        width="900"
+        height="700"
+        loading="eager"
+        fetchpriority="high"
+        decoding="async"
+      >
+    </div>
+    <div class="product-page-details">
+      <h1 class="product-page-title">{{ product.title }}</h1>
+      <p id="product-page-price" class="product-page-price">{{ product.selected_or_first_available_variant.price | money }}</p>
+      <div class="product-page-description">{{ product.description }}</div>
+      {% assign has_custom_metafields = false %}
+      {% if product.metafields.custom != blank %}
+        {% for metafield_pair in product.metafields.custom %}
+          {% assign metafield_obj = metafield_pair | last %}
+          {% if metafield_obj != blank %}
+            {% assign metafield_value = metafield_obj.value | default: metafield_obj %}
+            {% if metafield_obj.type == 'boolean' or metafield_value != blank %}
+              {% assign has_custom_metafields = true %}
+              {% break %}
+            {% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+
+      {% if has_custom_metafields %}
+        <div class="product-page-metafields">
+          <h2 class="product-page-metafields-title">Product details</h2>
+          <ul class="product-page-metafields-list">
+            {% for metafield_pair in product.metafields.custom %}
+              {% assign metafield_key = metafield_pair | first %}
+              {% assign metafield_obj = metafield_pair | last %}
+              {% if metafield_obj != blank %}
+                {% assign metafield_value = metafield_obj.value | default: metafield_obj %}
+                {% if metafield_obj.type == 'boolean' %}
+                  {% assign metafield_text = metafield_obj.value | json | replace: '"', '' %}
+                {% elsif metafield_obj.type contains 'list.' %}
+                  {% assign metafield_text = metafield_value | join: ', ' %}
+                {% else %}
+                  {% assign metafield_text = metafield_value %}
+                {% endif %}
+
+                {% if metafield_obj.type == 'boolean' or metafield_text != blank %}
+                  <li class="product-page-metafield-item">
+                    <span class="product-page-metafield-label">{{ metafield_key | replace: '_', ' ' | replace: '-', ' ' | capitalize }}</span>
+                    <span class="product-page-metafield-value">{{ metafield_text }}</span>
+                  </li>
+                {% endif %}
+              {% endif %}
+            {% endfor %}
+          </ul>
+        </div>
+      {% endif %}
+      {% form 'product', product %}
+        {% if product.has_only_default_variant == false %}
+          <input
+            type="hidden"
+            name="id"
+            id="product-variant-id"
+            value="{{ product.selected_or_first_available_variant.id }}"
+          >
+          <div id="product-variant-ui" class="product-page-variant-ui"></div>
+        {% else %}
+          <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+        {% endif %}
+        <button type="submit" class="btn product-page-cta" title="Add to Cart">Add to Cart</button>
+      {% endform %}
+    </div>
+  </div>
+</div>
+
+{% if product.has_only_default_variant == false %}
+  <script>
+    (function () {
+      const image = document.getElementById('product-page-image');
+      const price = document.getElementById('product-page-price');
+      const hiddenId = document.getElementById('product-variant-id');
+      const uiRoot = document.getElementById('product-variant-ui');
+      if (!image || !price || !hiddenId || !uiRoot) return;
+
+      const optionNames = [
+        {% for option in product.options_with_values %}
+          { name: {{ option.name | json }}, position: {{ forloop.index }} }{% unless forloop.last %},{% endunless %}
+        {% endfor %}
+      ];
+
+      const variants = [
+        {% for variant in product.variants %}
+          {
+            id: "{{ variant.id }}",
+            title: {{ variant.title | json }},
+            available: {{ variant.available | json }},
+            option1: {{ variant.option1 | json }},
+            option2: {{ variant.option2 | json }},
+            option3: {{ variant.option3 | json }},
+            price_cents: {{ variant.price }},
+            image: "{% if variant.image %}{{ variant.image | image_url: width: 900 }}{% else %}{{ product.featured_image | image_url: width: 900 }}{% endif %}",
+            price: "{{ variant.price | money }}"
+          }{% unless forloop.last %},{% endunless %}
+        {% endfor %}
+      ];
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      function variantOpt(variant, position) {
+        const key = 'option' + position;
+        const raw = variant && variant[key];
+        return raw == null ? '' : String(raw).trim();
+      }
+
+      function optionIsInteractive(position, list) {
+        let i;
+        let j;
+        let p;
+        let a;
+        let b;
+        let sameOther;
+        for (i = 0; i < list.length; i++) {
+          for (j = i + 1; j < list.length; j++) {
+            a = list[i];
+            b = list[j];
+            sameOther = true;
+            for (p = 1; p <= 3; p++) {
+              if (p === position) continue;
+              if (variantOpt(a, p) !== variantOpt(b, p)) {
+                sameOther = false;
+                break;
+              }
+            }
+            if (!sameOther) continue;
+            if (variantOpt(a, position) === variantOpt(b, position)) continue;
+            if (Number(a.price_cents) !== Number(b.price_cents)) return true;
+            if (String(a.image || '') !== String(b.image || '')) return true;
+          }
+        }
+        return false;
+      }
+
+      function pickVariantForSelections(interactivePositions, selections) {
+        const matched = variants.filter(function (v) {
+          return interactivePositions.every(function (pos) {
+            const wanted = selections[pos];
+            if (!wanted) return true;
+            return variantOpt(v, pos) === wanted;
+          });
+        });
+        const avail = matched.find(function (v) {
+          return v.available;
+        });
+        return avail || matched[0] || variants.find(function (v) {
+          return v.available;
+        }) || variants[0];
+      }
+
+      function valuesForInteractiveOption(interactivePositions, pos, selections) {
+        const others = interactivePositions.filter(function (p) {
+          return p !== pos;
+        });
+        const base = variants.filter(function (v) {
+          return others.every(function (p) {
+            const wanted = selections[p];
+            if (!wanted) return true;
+            return variantOpt(v, p) === wanted;
+          });
+        });
+        const set = new Set();
+        base.forEach(function (v) {
+          const val = variantOpt(v, pos);
+          if (val) set.add(val);
+        });
+        return Array.from(set).sort();
+      }
+
+      /**
+       * Static rows for the selected variant.
+       * Skips options that are rendered as dropdowns (interactive).
+       */
+      function variantInfoHtml(chosen, interactivePositions) {
+        if (!chosen) return '';
+        const interactiveSet = new Set(interactivePositions || []);
+        let html = '';
+        const oc = optionNames.length;
+        if (oc > 0) {
+          for (let pos = 1; pos <= oc; pos++) {
+            if (interactiveSet.has(pos)) continue;
+            const optMeta = optionNames.find(function (o) {
+              return o.position === pos;
+            });
+            const nm = optMeta && optMeta.name ? optMeta.name : 'Option';
+            const val = variantOpt(chosen, pos);
+            if (!val) continue;
+            html +=
+              '<div class="variant-info-row">' +
+              '<span class="variant-info-label">' +
+              escapeHtml(nm) +
+              '</span>' +
+              '<span class="variant-info-value">' +
+              escapeHtml(val) +
+              '</span>' +
+              '</div>';
+          }
+        } else if (variants.length > 1) {
+          html +=
+            '<div class="variant-info-row">' +
+            '<span class="variant-info-label">Variant</span>' +
+            '<span class="variant-info-value">' +
+            escapeHtml(chosen.title || '') +
+            '</span>' +
+            '</div>';
+        }
+        return html;
+      }
+
+      function bindInteractive(interactivePositions, selections) {
+        const root = document.getElementById('product-variant-interactive');
+        const infoEl = document.getElementById('product-variant-info');
+
+        function sync() {
+          const chosen = pickVariantForSelections(interactivePositions, selections);
+          if (!chosen) return;
+
+          hiddenId.value = String(chosen.id);
+          if (chosen.image) image.src = chosen.image;
+          if (chosen.price) price.textContent = chosen.price;
+
+          const infoHtml = variantInfoHtml(chosen, interactivePositions);
+          if (infoEl) {
+            infoEl.innerHTML = infoHtml;
+            infoEl.style.display = infoHtml ? 'block' : 'none';
+          }
+
+          interactivePositions.forEach(function (pos) {
+            const sel = root.querySelector('.product-page-variant-opt[data-opt-pos="' + pos + '"]');
+            if (!sel) return;
+            const allowed = valuesForInteractiveOption(interactivePositions, pos, selections);
+            const current = selections[pos];
+            sel.innerHTML = allowed
+              .map(function (valItem) {
+                const isSel = valItem === current ? 'selected' : '';
+                return '<option value="' + escapeHtml(valItem) + '" ' + isSel + '>' + escapeHtml(valItem) + '</option>';
+              })
+              .join('');
+          });
+        }
+
+        interactivePositions.forEach(function (pos) {
+          const sel = root.querySelector('.product-page-variant-opt[data-opt-pos="' + pos + '"]');
+          if (!sel) return;
+          sel.addEventListener('change', function () {
+            selections[pos] = sel.value;
+            sync();
+          });
+        });
+
+        sync();
+      }
+
+      function bindStaticDefault() {
+        const pick =
+          variants.find(function (v) {
+            return String(v.id) === String(hiddenId.value) && v.available;
+          }) ||
+          variants.find(function (v) {
+            return v.available;
+          }) ||
+          variants[0];
+        if (pick) {
+          hiddenId.value = String(pick.id);
+          if (pick.image) image.src = pick.image;
+          if (pick.price) price.textContent = pick.price;
+        }
+        const infoHtml = pick ? variantInfoHtml(pick, []) : '';
+        uiRoot.innerHTML =
+          '<div id="product-variant-info" class="product-page-variant-info">' +
+          infoHtml +
+          '</div>';
+        const infoEl = document.getElementById('product-variant-info');
+        if (infoEl) {
+          infoEl.style.display = infoHtml ? 'block' : 'none';
+        }
+      }
+
+      const optionCount = optionNames.length;
+      let interactive = [];
+      let pos;
+      if (optionCount < 1) {
+        bindStaticDefault();
+        return;
+      }
+
+      for (pos = 1; pos <= optionCount; pos++) {
+        if (optionIsInteractive(pos, variants)) interactive.push(pos);
+      }
+
+      if (interactive.length === 0) {
+        bindStaticDefault();
+        return;
+      }
+
+      const baseVariant =
+        variants.find(function (v) {
+          return String(v.id) === String(hiddenId.value);
+        }) || variants[0];
+
+      const selections = {};
+      interactive.forEach(function (p) {
+        selections[p] = variantOpt(baseVariant, p);
+      });
+
+      let selectsHtml = '';
+      interactive.forEach(function (p) {
+        const nmMeta = optionNames.find(function (o) {
+          return o.position === p;
+        });
+        const label = nmMeta && nmMeta.name ? nmMeta.name : 'Option';
+        const vals = valuesForInteractiveOption(interactive, p, selections);
+        const opts = vals
+          .map(function (valItem) {
+            const isSel = selections[p] === valItem ? 'selected' : '';
+            return '<option value="' + escapeHtml(valItem) + '" ' + isSel + '>' + escapeHtml(valItem) + '</option>';
+          })
+          .join('');
+        selectsHtml +=
+          '<div class="product-page-variant-picker">' +
+          '<label class="product-page-variant-label" for="product-opt-' +
+          p +
+          '">' +
+          escapeHtml(label) +
+          '</label>' +
+          '<select id="product-opt-' +
+          p +
+          '" class="product-page-variant-select product-page-variant-opt" data-opt-pos="' +
+          p +
+          '">' +
+          opts +
+          '</select>' +
+          '</div>';
+      });
+
+      uiRoot.innerHTML =
+        '<div id="product-variant-info" class="product-page-variant-info"></div>' +
+        '<div id="product-variant-interactive">' +
+        selectsHtml +
+        '</div>';
+
+      bindInteractive(interactive, selections);
+    })();
+  </script>
+{% endif %}

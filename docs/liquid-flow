@@ -1,0 +1,489 @@
+
+┌─────────────────────────────────────────────────────────────┐
+│ Section on template / Shopify visibility                    │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Template JSON lists this section instance                 │
+│ - Merchant visibility (theme editor eye toggle)             │
+│                                                             │
+│ PROCESS:                                                    │
+│ - No Liquid “hide section” setting                          │
+│ - Hide/remove via Shopify section controls only             │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Section runs Liquid → markup + JSON when visible          │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+═════════════════════════════════════════════════════════════════
+                GRID COLUMN CALCULATION FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Assign Desktop Grid Columns                                 │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - section.settings.grid_columns_desktop                     │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Store desktop column count                                │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - gd variable                                               │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Mobile Grid Logic                                           │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Desktop columns                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - If desktop > 2                                            │
+│     mobile = 2                                              │
+│ - Else                                                      │
+│     mobile = desktop                                        │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - g480 variable                                             │
+└─────────────────────────────────────────────────────────────┘
+                        │
+                        ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Tablet Grid Logic                                           │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Desktop columns                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - If desktop > 3                                            │
+│     tablet = 3                                              │
+│ - Else                                                      │
+│     tablet = desktop                                        │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - g768 variable                                             │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    MAIN CONTAINER FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Create Finder Container                                     │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - section.id                                                │
+│ - layout setting                                            │
+│ - grid column variables                                     │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Add dynamic CSS variables                                 │
+│ - Add section-specific classes                              │
+│ - Add data attributes                                       │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Responsive finder wrapper                                 │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Render Section Heading                                      │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - section.settings.heading                                  │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Print heading                                             │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - <h2> heading                                              │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    COLLECTION FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Load Collection                                             │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - section.settings.collection                               │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Get Shopify collection object                             │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - collection variable                                       │
+└─────────────────────────────────────────────────────────────┘
+                     │
+                     ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Product Limit Validation                                    │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - section.settings.product_limit                            │
+│                                                             │
+│ PROCESS:                                                    │
+│ - If limit > 48 → set 48                                    │
+│ - If limit < 4  → set 4                                     │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Safe product limit                                        │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    FILTER DROPDOWN FLOW
+═════════════════════════════════════════════════════════════════
+
+                 LOOP THROUGH BLOCKS
+                           │
+                           ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ {% for block in section.blocks %}                           │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Filter block                                              │
+│ - Metafield key                                             │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Create dropdown                                           │
+│ - Create label                                              │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Filter dropdown                                           │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+═════════════════════════════════════════════════════════════════
+              DROPDOWN OPTIONS GENERATION FLOW
+═════════════════════════════════════════════════════════════════
+
+                 LOOP THROUGH PRODUCTS
+                           │
+                           ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Read Product Metafield                                      │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product                                                   │
+│ - block.settings.key                                        │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Get metafield from custom namespace                       │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Metafield value                                           │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Detect Metafield Type                                       │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Metafield object                                          │
+│                                                             │
+│ PROCESS:                                                    │
+│                                                             │
+│ IF boolean                                                  │
+│   → convert true/false                                      │
+│                                                             │
+│ IF list type                                                │
+│   → join values with commas                                 │
+│                                                             │
+│ ELSE                                                        │
+│   → normal value                                            │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Clean metafield string                                    │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Split Multi-Value Metafields                                │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Raw metafield string                                      │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Replace ";" with ","                                      │
+│ - Split values                                              │
+│ - Trim whitespace                                           │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Array of values                                           │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Remove Duplicate Values                                     │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Option array                                              │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Store unique values using token logic                     │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Unique filter options                                     │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Render Dropdown Options                                     │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Sorted unique options                                     │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Create <option> tags                                      │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Complete dropdown                                         │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    BUTTON FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Render Action Buttons                                       │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Apply button label                                        │
+│ - Clear button label                                        │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Create Apply button                                       │
+│ - Create Clear button                                       │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Interactive filter buttons                                │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    RESULT STATE FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Render Result State Elements                                │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Empty message                                             │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Create result counter                                     │
+│ - Create empty state                                        │
+│ - Create results container                                  │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Dynamic UI placeholders                                   │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    JSON CONFIG FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Create JSON Script Tag                                      │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Products                                                  │
+│ - Filters                                                   │
+│ - Labels                                                    │
+│ - Metafields                                                │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Convert Liquid data into JSON                             │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - JavaScript configuration object                           │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    PRODUCT JSON FLOW
+═════════════════════════════════════════════════════════════════
+
+                 LOOP THROUGH PRODUCTS
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Generate Product Object                                     │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Shopify product                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Extract title                                             │
+│ - Extract image                                             │
+│ - Extract URL                                               │
+│ - Extract variants                                          │
+│ - Extract metafields                                        │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Product JSON object                                       │
+└─────────────────────────────────────────────────────────────┘
+                           │
+                           ▼
+
+═════════════════════════════════════════════════════════════════
+                    VARIANT JSON FLOW
+═════════════════════════════════════════════════════════════════
+
+                 LOOP THROUGH VARIANTS
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Generate Variant Object                                     │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Shopify variant                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Extract variant ID                                        │
+│ - Extract availability                                      │
+│ - Extract options                                           │
+│ - Extract image                                             │
+│ - Extract price                                             │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Variant JSON object                                       │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    METAFIELD JSON FLOW
+═════════════════════════════════════════════════════════════════
+
+                 LOOP THROUGH FILTER BLOCKS
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ Generate Product Metafields                                 │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product metafields                                        │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Convert booleans                                          │
+│ - Convert lists                                             │
+│ - Convert strings                                           │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Clean metafield JSON                                      │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    SCRIPT LOADING FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Load dynamic-finder.js                                      │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - dynamic_finder_js_included flag                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Prevent duplicate script loading                          │
+│ - Load JS file with defer                                   │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - JavaScript initialized                                    │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    SCHEMA FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ Shopify Schema Definition                                   │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Section settings                                          │
+│ - Block settings                                            │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Register theme editor controls                            │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Theme editor UI                                           │
+│ - Configurable finder section                               │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    COMPLETE LIQUID FLOW
+═════════════════════════════════════════════════════════════════
+
+SECTION LOAD
+   │
+   ▼
+SET GRID VARIABLES
+   │
+   ▼
+LOAD COLLECTION
+   │
+   ▼
+VALIDATE PRODUCT LIMIT
+   │
+   ▼
+GENERATE FILTER DROPDOWNS
+   │
+   ▼
+READ PRODUCT METAFIELDS
+   │
+   ▼
+BUILD UNIQUE FILTER OPTIONS
+   │
+   ▼
+RENDER BUTTONS
+   │
+   ▼
+CREATE RESULT CONTAINERS
+   │
+   ▼
+GENERATE PRODUCT JSON
+   │
+   ├── PRODUCT DATA
+   ├── VARIANTS
+   ├── METAFIELDS
+   ├── FILTER CONFIG
+   └── LABELS
+   │
+   ▼
+OUTPUT JSON SCRIPT TAG
+   │
+   ▼
+LOAD dynamic-finder.js
+   │
+   ▼
+SHOPIFY THEME EDITOR SCHEMA
+   │
+   ▼
+END
+```

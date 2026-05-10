@@ -1,0 +1,185 @@
+┌───────────────────────────────┐
+│         PAGE LOAD             │
+│ Shopify section loads         │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ initSectionsFromDom()         │
+├───────────────────────────────┤
+│ • Find finder sections        │
+│ • Read section ID             │
+│ • Prevent duplicate mount     │
+│ • Call readFinderConfig()     │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ readFinderConfig(sectionId)   │
+├───────────────────────────────┤
+│ • Read Liquid JSON            │
+│ • Parse products              │
+│ • Parse filters               │
+│ • Parse metafields            │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ mountFinder(config)           │
+├───────────────────────────────┤
+│ • Store products              │
+│ • Store filters               │
+│ • Create helper functions     │
+│ • Initialize finder           │
+│ • Bind buttons                │
+└───────┬───────────────────────┘
+        │
+        ├──────────────────────┐
+        │                      │
+        ▼                      ▼
+┌───────────────────┐   ┌───────────────────┐
+│ initFinder()      │   │ bindButtons()     │
+├───────────────────┤   ├───────────────────┤
+│ • Show empty UI   │   │ Apply button      │
+│ • Show hint text  │   │ → applyFilters()  │
+│ • Prepare results │   │ Clear button      │
+└─────────┬─────────┘   │ → clearFilters()  │
+          │             └───────────────────┘
+          │
+          ▼
+═══════════════════════════════════════════════
+              USER INTERACTION
+═══════════════════════════════════════════════
+
+         USER SELECTS FILTERS
+                    │
+                    ▼
+┌───────────────────────────────┐
+│ applyFilters()                │
+├───────────────────────────────┤
+│ • Read dropdown values        │
+│ • Compare metafields          │
+│ • Match products              │
+│ • Create filteredProducts[]   │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ getMetaValues()               │
+├───────────────────────────────┤
+│ • Read metafields             │
+│ • Split comma values          │
+│ • Normalize values            │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ render(filteredProducts)      │
+├───────────────────────────────┤
+│ IF initial state              │
+│   → Show default message      │
+│                               │
+│ IF no products                │
+│   → Show "No products"        │
+│                               │
+│ ELSE                          │
+│   → Build product cards       │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ renderDynamicCard()           │
+├───────────────────────────────┤
+│ • Add image                   │
+│ • Add title                   │
+│ • Add price                   │
+│ • Add buttons                 │
+│ • Add variants                │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ renderProductMetaHtml()       │
+├───────────────────────────────┤
+│ • Build metafield HTML        │
+│ • Format metadata             │
+└──────────────┬────────────────┘
+               │
+               ▼
+═══════════════════════════════════════════════
+                VARIANT SYSTEM
+═══════════════════════════════════════════════
+
+┌───────────────────────────────┐
+│ initDynamicVariantCard()      │
+├───────────────────────────────┤
+│ • Create variant dropdowns    │
+│ • Set default variant         │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ optionIsInteractive()         │
+├───────────────────────────────┤
+│ • Check price changes         │
+│ • Check image changes         │
+│ • Decide interactive/static   │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ bindInteractiveVariantCard()  │
+├───────────────────────────────┤
+│ • Update image                │
+│ • Update price                │
+│ • Update selected variant     │
+└──────────────┬────────────────┘
+               │
+               ▼
+═══════════════════════════════════════════════
+                  USER ACTIONS
+═══════════════════════════════════════════════
+
+        ┌───────────────────────┐
+        │ USER CLICKS BUTTON    │
+        └──────────┬────────────┘
+                   │
+         ┌─────────┴─────────┐
+         │                   │
+         ▼                   ▼
+
+┌───────────────────┐   ┌───────────────────┐
+│ ADD TO CART       │   │ BUY NOW           │
+└─────────┬─────────┘   └─────────┬─────────┘
+          │                       │
+          ▼                       ▼
+
+┌───────────────────┐   ┌───────────────────┐
+│ addToCart()       │   │ buyNow()          │
+├───────────────────┤   ├───────────────────┤
+│ • Show loading    │   │ • Add to cart     │
+│ • Call addVariant │   │ • Refresh cart    │
+│ • Refresh cart    │   │ • Redirect        │
+└─────────┬─────────┘   │   to checkout     │
+          │             └───────────────────┘
+          ▼
+┌───────────────────────────────┐
+│ addVariant()                  │
+├───────────────────────────────┤
+│ POST /cart/add.js             │
+│ Add variant to Shopify cart   │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│ refreshCartUI()               │
+├───────────────────────────────┤
+│ • Fetch /cart.js              │
+│ • Update cart badge           │
+│ • Update cart counters        │
+└──────────────┬────────────────┘
+               │
+               ▼
+┌───────────────────────────────┐
+│      UPDATED SHOPIFY CART     │
+└───────────────────────────────┘

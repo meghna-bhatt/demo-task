@@ -1,0 +1,739 @@
+<div class="container">
+  <div class="finder">
+    <div class="finder-controls">
+      <h2>{{ section.settings.heading }}</h2>
+      <div class="dropdowns">
+        <select id="scenario" aria-label="Scenario filter">
+          <option value="">Select Scenario</option>
+        </select>
+        <select id="resolution" aria-label="Resolution filter">
+          <option value="">Select Resolution</option>
+        </select>
+        <select id="power" aria-label="Power source filter">
+          <option value="">Select Power Source</option>
+        </select>
+        <select id="ai" aria-label="AI tracking filter">
+          <option value="">AI Tracking</option>
+        </select>
+      </div>
+  
+      <div class="filter-actions">
+        <button class="btn" type="button" aria-label="Apply selected filters" title="{{ section.settings.apply_label | escape }}" onclick="applyFilters()">{{ section.settings.apply_label }}</button>
+        <button class="btn clear" type="button" aria-label="Clear all selected filters" title="{{ section.settings.clear_label | escape }}" onclick="clearFilters()">{{ section.settings.clear_label }}</button>
+      </div>
+    </div>
+  
+    <p id="result-count" class="result-count"></p>
+    <p id="empty-state" class="empty-state">Use filters to find products</p>
+  
+    <div id="results" class="results-grid"></div>
+  </div>
+  
+  <div id="toast" class="toast"></div>
+</div>
+
+<!-- product data -->
+{% assign collection = collections[section.settings.collection] %}
+{% assign finder_product_limit = section.settings.product_limit | default: 24 %}
+{% if finder_product_limit > 48 %}
+  {% assign finder_product_limit = 48 %}
+{% elsif finder_product_limit < 4 %}
+  {% assign finder_product_limit = 4 %}
+{% endif %}
+<script>
+  window.productData = [
+    {% for product in collection.products limit: finder_product_limit %}
+    {
+      handle: {{ product.handle | json }},
+      id: "{{ product.selected_or_first_available_variant.id }}",
+      title: {{ product.title | json }},
+      url: {{ product.url | json }},
+      image: "{{ product.featured_image | image_url: width: 600 }}",
+      price: "{{ product.price | money }}",
+
+      option_names: [
+        {% for option in product.options_with_values %}
+          { name: {{ option.name | json }}, position: {{ forloop.index }} }{% unless forloop.last %},{% endunless %}
+        {% endfor %}
+      ],
+
+      scenario: "{{ product.metafields.custom.scenario }}",
+      resolution: "{{ product.metafields.custom.multiple_resolution_settings }}",
+      power: "{{ product.metafields.custom.power_supply }}",
+      ai: "{{ product.metafields.custom.ai_tracking.value }}",
+
+      description: "{{ product.metafields.custom.description | escape }}",
+      variants: [
+        {% for variant in product.variants %}
+          {
+            id: "{{ variant.id }}",
+            title: {{ variant.title | json }},
+            available: {{ variant.available | json }},
+            option1: {{ variant.option1 | json }},
+            option2: {{ variant.option2 | json }},
+            option3: {{ variant.option3 | json }},
+            price_cents: {{ variant.price }},
+            image: "{% if variant.image %}{{ variant.image | image_url }}{% else %}{{ product.featured_image | image_url }}{% endif %}",
+            price: "{{ variant.price | money }}"
+          }{% unless forloop.last %},{% endunless %}
+        {% endfor %}
+      ]
+    },
+    {% endfor %}
+  ];
+</script>
+
+<script>
+  function getUniqueValues(key) {
+    return [...new Set(window.productData.map(p => p[key]).filter(Boolean))];
+  }
+  /* ai dropdown*/
+  function populateDropdown(id, values) {
+    const select = document.getElementById(id);
+    values.forEach(val => {
+      const option = document.createElement('option');
+      option.value = val;
+
+      if (id === 'ai') {
+        const v = String(val).toLowerCase();
+        option.textContent =
+          (v === "true" || v === "1" || v === "yes")
+            ? "Yes"
+            : "No";
+      } else {
+        option.textContent = val;
+      }
+
+      select.appendChild(option);
+    });
+  }
+
+  populateDropdown('scenario', getUniqueValues('scenario'));
+  populateDropdown('resolution', getUniqueValues('resolution'));
+  populateDropdown('power', getUniqueValues('power'));
+  populateDropdown('ai', getUniqueValues('ai'));
+
+  function applyFilters() {
+    const scenario = document.getElementById('scenario').value;
+    const resolution = document.getElementById('resolution').value;
+    const power = document.getElementById('power').value;
+    const ai = document.getElementById('ai').value;
+
+    const normalize = v => String(v ?? "").trim().toLowerCase();
+
+    function metaTokens(str) {
+      return String(str ?? "")
+        .split(/[;,]/)
+        .map(s => s.trim())
+        .filter(Boolean);
+    }
+
+    function normalizeAiKey(v) {
+      const n = normalize(v);
+      if (n === "true" || n === "1" || n === "yes") return "true";
+      if (n === "false" || n === "0" || n === "no") return "false";
+      return n;
+    }
+
+    const filtered = window.productData.filter(p => {
+      return (
+        (!scenario || normalize(p.scenario) === normalize(scenario)) &&
+        (!resolution ||
+          metaTokens(p.resolution).map(normalize).includes(normalize(resolution))) &&
+        (!power || normalize(p.power) === normalize(power)) &&
+        (!ai || normalizeAiKey(ai) === normalizeAiKey(p.ai))
+      );
+    });
+
+    renderProducts(filtered, false);
+    updateCount(filtered.length);
+  }
+
+  function clearFilters() {
+    document.getElementById('scenario').value = "";
+    document.getElementById('resolution').value = "";
+    document.getElementById('power').value = "";
+    document.getElementById('ai').value = "";
+
+    renderProducts([], true);
+    updateCount(0);
+  }
+
+  function updateCount(count) {
+    const resultCountEl = document.getElementById('result-count');
+    if (!resultCountEl) return;
+
+    const message = count > 0 ? `${count} product(s) found` : "";
+    resultCountEl.innerText = message;
+    resultCountEl.classList.toggle('is-visible', Boolean(message));
+  }
+
+  function renderProducts(products, isInitial = false) {
+    const container = document.getElementById('results');
+    const emptyState = document.getElementById('empty-state');
+    const defaultEmptyMessage = "Use filters to find products";
+    const noMatchMessage = "No match found";
+
+    if (isInitial) {
+      container.innerHTML = "";
+      emptyState.innerText = defaultEmptyMessage;
+      emptyState.classList.remove('no-match');
+      emptyState.style.display = "block";
+      return;
+    }
+
+    if (!products.length) {
+      container.innerHTML = "";
+      emptyState.innerText = noMatchMessage;
+      emptyState.classList.add('no-match');
+      emptyState.style.display = "block";
+      return;
+    }
+
+    emptyState.classList.remove('no-match');
+    emptyState.style.display = "none";
+    container.innerHTML = products.map((p, i) => renderFinderCard(p, `fc-${i}`)).join('');
+    products.forEach((p, i) => initFinderVariantCard(`fc-${i}`, p));
+  }
+
+  function escapeHtml(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
+
+  function variantOpt(variant, position) {
+    const key = `option${position}`;
+    const raw = variant && variant[key];
+    return raw == null ? '' : String(raw).trim();
+  }
+
+  function optionIsInteractive(position, variants) {
+    for (let i = 0; i < variants.length; i++) {
+      for (let j = i + 1; j < variants.length; j++) {
+        const a = variants[i];
+        const b = variants[j];
+        let sameOther = true;
+        for (let p = 1; p <= 3; p++) {
+          if (p === position) continue;
+          if (variantOpt(a, p) !== variantOpt(b, p)) {
+            sameOther = false;
+            break;
+          }
+        }
+        if (!sameOther) continue;
+        if (variantOpt(a, position) === variantOpt(b, position)) continue;
+        if (Number(a.price_cents) !== Number(b.price_cents)) return true;
+        if (String(a.image || '') !== String(b.image || '')) return true;
+      }
+    }
+    return false;
+  }
+
+  function pickVariantForSelections(product, interactivePositions, selections) {
+    const variants = product.variants || [];
+    const matched = variants.filter(function (v) {
+      return interactivePositions.every(function (pos) {
+        const wanted = selections[pos];
+        if (!wanted) return true;
+        return variantOpt(v, pos) === wanted;
+      });
+    });
+    const avail = matched.find(function (v) {
+      return v.available;
+    });
+    return avail || matched[0] || variants.find(function (v) {
+      return v.available;
+    }) || variants[0];
+  }
+
+  function valuesForInteractiveOption(product, interactivePositions, pos, selections) {
+    const variants = product.variants || [];
+    const others = interactivePositions.filter(function (p) {
+      return p !== pos;
+    });
+    const base = variants.filter(function (v) {
+      return others.every(function (p) {
+        const wanted = selections[p];
+        if (!wanted) return true;
+        return variantOpt(v, p) === wanted;
+      });
+    });
+    const set = new Set();
+    base.forEach(function (v) {
+      const val = variantOpt(v, pos);
+      if (val) set.add(val);
+    });
+    return [...set].sort();
+  }
+
+  function renderLegacyVariantSelect(product, cardKey) {
+    const variants = product.variants || [];
+    const options = variants.map(function (variant) {
+      const sel = String(variant.id) === String(product.id) ? 'selected' : '';
+      const dis = variant.available ? '' : 'disabled';
+      const suffix = variant.available ? '' : ' (Sold out)';
+      return '<option value="' + variant.id + '" ' + sel + ' ' + dis + '>' + escapeHtml(variant.title) + suffix + '</option>';
+    }).join('');
+    return (
+      '<div class="variant-picker" data-variant-root="' + cardKey + '" data-current-variant-id="' + product.id + '">' +
+        '<label for="variant-select-' + cardKey + '">Variant</label>' +
+        '<select id="variant-select-' + cardKey + '" class="variant-select finder-variant-legacy">' + options + '</select>' +
+      '</div>'
+    );
+  }
+
+  function renderFinderCard(product, cardKey) {
+    const variants = product.variants || [];
+    const controlsHtml =
+      variants.length <= 1
+        ? ''
+        : '<div class="finder-variant-slot" data-card="' +
+          cardKey +
+          '" data-placeholder="1"></div>';
+
+    const productUrl = product.url || ('/products/' + (product.handle || ''));
+    const safeTitle = escapeHtml(product.title);
+
+    return `
+      <div class="card">
+        <a class="card-image-link" href="${productUrl}" aria-label="${safeTitle}">
+          <img id="card-image-${cardKey}" src="${product.image}" alt="${safeTitle}" loading="lazy" decoding="async" width="600" height="300" />
+        </a>
+        <h3><a class="card-title-link" href="${productUrl}">${safeTitle}</a></h3>
+        <p id="card-price-${cardKey}">${product.price}</p>
+
+        <div class="meta">
+          <p><b>Scenario:</b> ${product.scenario || '-'}</p>
+          <p><b>Resolution:</b> ${product.resolution || '-'}</p>
+          <p><b>Power:</b> ${product.power || '-'}</p>
+          <p><b>AI Tracking:</b> ${product.ai || 'false'}</p>
+        </div>
+        ${controlsHtml}
+
+        <div class="actions">
+          <button type="button" class="btn" title="Add to Cart" onclick="addToCart(getCardVariantId('${cardKey}'))">Add to Cart</button>
+          <button type="button" class="btn buy" title="Buy Now" onclick="buyNow(getCardVariantId('${cardKey}'))">Buy Now</button>
+        </div>
+      </div>
+    `;
+  }
+
+  function initFinderVariantCard(cardKey, product) {
+    const slot = document.querySelector('.finder-variant-slot[data-card="' + cardKey + '"]');
+    if (!slot) return;
+
+    const variants = Array.isArray(product.variants) ? product.variants : [];
+    if (variants.length <= 1) return;
+
+    const optionNames = Array.isArray(product.option_names) ? product.option_names : [];
+    const optionCount = optionNames.length;
+
+    function legacyHtml() {
+      return renderLegacyVariantSelect(product, cardKey);
+    }
+
+    if (!optionCount) {
+      slot.innerHTML = legacyHtml();
+      bindLegacyVariantCard(cardKey, product);
+      return;
+    }
+
+    const interactive = [];
+    for (let pos = 1; pos <= optionCount; pos++) {
+      if (optionIsInteractive(pos, variants)) interactive.push(pos);
+    }
+
+    if (interactive.length === 0) {
+      slot.innerHTML = legacyHtml();
+      bindLegacyVariantCard(cardKey, product);
+      return;
+    }
+
+    const baseVariant =
+      variants.find(function (v) {
+        return String(v.id) === String(product.id);
+      }) || variants[0];
+
+    const selections = {};
+    interactive.forEach(function (pos) {
+      selections[pos] = variantOpt(baseVariant, pos);
+    });
+
+    slot.innerHTML = buildInteractiveVariantMarkup(cardKey, product, interactive, selections);
+    const root = slot.querySelector('[data-variant-root]');
+    bindInteractiveVariantCard(cardKey, product, interactive, selections, root);
+  }
+
+  function buildInteractiveVariantMarkup(cardKey, product, interactivePositions, selections) {
+    const optionNames = product.option_names || [];
+    const nameByPos = {};
+    optionNames.forEach(function (o) {
+      nameByPos[o.position] = o.name;
+    });
+
+    let selectsHtml = '';
+    interactivePositions.forEach(function (pos) {
+      const label = nameByPos[pos] || 'Option';
+      const values = valuesForInteractiveOption(product, interactivePositions, pos, selections);
+      const opts = values
+        .map(function (val) {
+          const sel = selections[pos] === val ? 'selected' : '';
+          return '<option value="' + escapeHtml(val) + '" ' + sel + '>' + escapeHtml(val) + '</option>';
+        })
+        .join('');
+      selectsHtml +=
+        '<div class="variant-picker">' +
+          '<label for="finder-opt-' + cardKey + '-' + pos + '">' +
+          escapeHtml(label) +
+          '</label>' +
+          '<select id="finder-opt-' +
+          cardKey +
+          '-' +
+          pos +
+          '" class="variant-select finder-variant-opt" data-opt-pos="' +
+          pos +
+          '">' +
+          opts +
+          '</select>' +
+        '</div>';
+    });
+
+    return (
+      '<div class="variant-controls" data-variant-root="' +
+      cardKey +
+      '" data-current-variant-id="">' +
+      '<div class="variant-info" id="variant-info-' +
+      cardKey +
+      '"></div>' +
+      '<div class="variant-interactive">' +
+      selectsHtml +
+      '</div>' +
+      '</div>'
+    );
+  }
+
+  function bindInteractiveVariantCard(cardKey, product, interactivePositions, selections, root) {
+    function sync() {
+      const chosen = pickVariantForSelections(product, interactivePositions, selections);
+      if (!chosen) return;
+
+      root.dataset.currentVariantId = String(chosen.id);
+
+      const imageEl = document.getElementById('card-image-' + cardKey);
+      if (imageEl && chosen.image) imageEl.src = chosen.image;
+
+      const priceEl = document.getElementById('card-price-' + cardKey);
+      if (priceEl && chosen.price) priceEl.textContent = chosen.price;
+
+      const infoEl = document.getElementById('variant-info-' + cardKey);
+      const optionCount = (product.option_names || []).length;
+      let infoHtml = '';
+      for (let pos = 1; pos <= optionCount; pos++) {
+        if (interactivePositions.indexOf(pos) !== -1) continue;
+        const optMeta = (product.option_names || []).find(function (o) {
+          return o.position === pos;
+        });
+        const nm = optMeta && optMeta.name ? optMeta.name : 'Option';
+        const val = variantOpt(chosen, pos);
+        if (!val) continue;
+        infoHtml +=
+          '<div class="variant-info-row">' +
+          '<span class="variant-info-label">' +
+          escapeHtml(nm) +
+          '</span>' +
+          '<span class="variant-info-value">' +
+          escapeHtml(val) +
+          '</span>' +
+          '</div>';
+      }
+      if (infoEl) {
+        infoEl.innerHTML = infoHtml ? infoHtml : '';
+        infoEl.style.display = infoHtml ? 'block' : 'none';
+      }
+
+      interactivePositions.forEach(function (pos) {
+        const sel = root.querySelector('.finder-variant-opt[data-opt-pos="' + pos + '"]');
+        if (!sel) return;
+        const allowed = valuesForInteractiveOption(product, interactivePositions, pos, selections);
+        const current = selections[pos];
+        sel.innerHTML = allowed
+          .map(function (val) {
+            const isSel = val === current ? 'selected' : '';
+            return '<option value="' + escapeHtml(val) + '" ' + isSel + '>' + escapeHtml(val) + '</option>';
+          })
+          .join('');
+      });
+    }
+
+    interactivePositions.forEach(function (pos) {
+      const sel = root.querySelector('.finder-variant-opt[data-opt-pos="' + pos + '"]');
+      if (!sel) return;
+      sel.addEventListener('change', function () {
+        selections[pos] = sel.value;
+        sync();
+      });
+    });
+
+    sync();
+  }
+
+  function bindLegacyVariantCard(cardKey, product) {
+    const root = document.querySelector('[data-variant-root="' + cardKey + '"]');
+    const sel = document.getElementById('variant-select-' + cardKey);
+    if (!root || !sel) return;
+
+    root.dataset.currentVariantId = sel.value;
+
+    function applyLegacyVariantId(variantId) {
+      root.dataset.currentVariantId = String(variantId);
+      const variant = (product.variants || []).find(function (v) {
+        return String(v.id) === String(variantId);
+      });
+      if (!variant) return;
+      const imageEl = document.getElementById('card-image-' + cardKey);
+      if (imageEl && variant.image) imageEl.src = variant.image;
+      const priceEl = document.getElementById('card-price-' + cardKey);
+      if (priceEl && variant.price) priceEl.textContent = variant.price;
+    }
+
+    sel.addEventListener('change', function () {
+      applyLegacyVariantId(sel.value);
+    });
+
+    applyLegacyVariantId(sel.value);
+  }
+
+  function getCardVariantId(cardKey) {
+    const root = document.querySelector('[data-variant-root="' + cardKey + '"]');
+    if (!root || !root.dataset.currentVariantId) return '';
+    return root.dataset.currentVariantId;
+  }
+
+  (function () {
+    if (window.__finderCartPageOverlayApi) return;
+    window.__finderCartPageOverlayApi = true;
+
+    function ensureOverlay() {
+      var root = document.getElementById('finder-cart-page-overlay');
+      if (!root) {
+        root = document.createElement('div');
+        root.id = 'finder-cart-page-overlay';
+        root.className = 'finder-cart-page-overlay';
+        root.setAttribute('hidden', '');
+        root.innerHTML =
+          '<div class="finder-cart-page-overlay__backdrop" aria-hidden="true"></div>' +
+          '<div class="finder-cart-page-overlay__panel" role="status" aria-live="polite" aria-busy="true">' +
+          '<span class="finder-cart-page-overlay__spinner" aria-hidden="true"></span>' +
+          '<span class="finder-cart-page-overlay__label">Please wait…</span>' +
+          '</div>';
+        document.body.appendChild(root);
+      }
+      return root;
+    }
+
+    window.showFinderCartPageOverlay = function (message) {
+      var root = ensureOverlay();
+      var label = root.querySelector('.finder-cart-page-overlay__label');
+      if (label && message) label.textContent = message;
+      root.removeAttribute('hidden');
+      requestAnimationFrame(function () {
+        root.classList.add('is-visible');
+      });
+      document.documentElement.classList.add('finder-cart-overlay-open');
+    };
+
+    window.hideFinderCartPageOverlay = function () {
+      var root = document.getElementById('finder-cart-page-overlay');
+      if (!root) return;
+      root.classList.remove('is-visible');
+      root.setAttribute('hidden', '');
+      document.documentElement.classList.remove('finder-cart-overlay-open');
+    };
+
+    window.beginFinderCartRequest = function (message) {
+      if (window.__finderCartRequestActive) return false;
+      window.__finderCartRequestActive = true;
+      window.showFinderCartPageOverlay(message);
+      return true;
+    };
+
+    window.endFinderCartRequest = function () {
+      window.__finderCartRequestActive = false;
+      window.hideFinderCartPageOverlay();
+    };
+  })();
+
+  async function addToCart(variantId) {
+    if (!window.beginFinderCartRequest('Adding to cart…')) return;
+    try {
+      const res = await fetch('/cart/add.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: variantId, quantity: 1 })
+      });
+
+      if (!res.ok) {
+        showToast('Unable to add product');
+        return;
+      }
+
+      await refreshCartUI();
+      showToast('Product added to cart');
+    } finally {
+      window.endFinderCartRequest();
+    }
+  }
+
+  async function buyNow(variantId) {
+    if (!window.beginFinderCartRequest('Going to checkout…')) return;
+    try {
+      await fetch('/cart/add.js', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: variantId, quantity: 1 })
+      });
+
+      await refreshCartUI();
+      window.location.href = "/checkout";
+    } finally {
+      window.endFinderCartRequest();
+    }
+  }
+
+  // 🔥 FINAL ROBUST CART REFRESH FIX
+  async function refreshCartUI() {
+    const res = await fetch('/cart.js');
+    const cart = await res.json();
+    const count = cart.item_count;
+
+    const cartLink = document.querySelector('.cart-icon');
+    if (cartLink) {
+      let badge = cartLink.querySelector('.cart-count');
+      if (count > 0 && !badge) {
+        badge = document.createElement('span');
+        badge.className = 'cart-count';
+        cartLink.appendChild(badge);
+      } else if (count <= 0 && badge) {
+        badge.remove();
+        badge = null;
+      }
+      if (badge) badge.textContent = String(count);
+    }
+
+    // update cart bubbles safely
+    document.querySelectorAll(
+      '.cart-count, .cart-count-bubble, [data-cart-count]'
+    ).forEach(el => {
+      el.textContent = count;
+      el.style.visibility = count > 0 ? "visible" : "hidden";
+      el.style.opacity = count > 0 ? "1" : "0";
+    });
+
+    // Shopify theme events
+    window.dispatchEvent(new CustomEvent('cart:refresh'));
+    document.dispatchEvent(new CustomEvent('cart:refresh'));
+    document.documentElement.dispatchEvent(new CustomEvent('cart:refresh'));
+
+    window.dispatchEvent(new CustomEvent('cart:updated', { detail: cart }));
+
+    // safe fallback (won’t break if theme doesn't support)
+    try {
+      const sections = await fetch('/cart.js').then(r => r.json());
+    } catch (e) {}
+  }
+
+  function showToast(message) {
+    const toast = document.getElementById("toast");
+    toast.innerText = message;
+    toast.style.opacity = "1";
+    toast.style.transform = "translateX(-50%) translateY(0)";
+
+    setTimeout(() => {
+      toast.style.opacity = "0";
+      toast.style.transform = "translateX(-50%) translateY(8px)";
+    }, 2000);
+  }
+
+  // INIT
+  renderProducts([], true);
+  updateCount(0);
+</script>
+
+<style>
+  .result-count {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    margin: 0 0 12px;
+    padding: 8px 14px;
+    border: 1px solid #c7d2fe;
+    border-radius: 999px;
+    background-color: #eef2ff;
+    color: #3730a3;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    line-height: 1.3;
+    box-shadow: 0 4px 12px #1e1b4b14;
+  }
+
+  .result-count.is-visible {
+    display: inline-flex;
+  }
+
+  .results-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 20px;
+  }
+
+</style>
+
+{% schema %}
+{
+  "name": "Product Finder",
+  "settings": [
+    {
+      "type": "text",
+      "id": "heading",
+      "label": "Heading",
+      "default": "Find Your Product"
+    },
+    {
+      "type": "collection",
+      "id": "collection",
+      "label": "Collection"
+    },
+    {
+      "type": "range",
+      "id": "product_limit",
+      "label": "Product limit",
+      "info": "Each product is embedded in page JavaScript. Lower values load faster on mobile; ~24 is a good default.",
+      "min": 4,
+      "max": 48,
+      "step": 4,
+      "default": 24
+    },
+    {
+      "type": "text",
+      "id": "apply_label",
+      "label": "Apply button label",
+      "default": "Apply Filters"
+    },
+    {
+      "type": "text",
+      "id": "clear_label",
+      "label": "Clear button label",
+      "default": "Clear"
+    }
+  ],
+  "presets": [
+    {
+      "name": "Product Finder"
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,72 @@
+/*
+ * ------------------------------------------------------------
+ * IMPORTANT: The contents of this file are auto-generated.
+ *
+ * This file may be updated by the Shopify admin theme editor
+ * or related systems. Please exercise caution as any changes
+ * made to this file may be overwritten.
+ * ------------------------------------------------------------
+ */
+{
+  "sections": {
+    "banner": {
+      "type": "banner",
+      "settings": {}
+    },
+    "dynamic_finder_HLjD3C": {
+      "type": "dynamic-finder",
+      "blocks": {
+        "filter_HCcRwj": {
+          "type": "filter",
+          "settings": {
+            "label": "AI Tracking",
+            "key": "ai_tracking"
+          }
+        },
+        "filter_QyUTYA": {
+          "type": "filter",
+          "settings": {
+            "label": "Power Source",
+            "key": "power_source"
+          }
+        },
+        "filter_cw7fHH": {
+          "type": "filter",
+          "settings": {
+            "label": "Resolution",
+            "key": "resolution"
+          }
+        },
+        "filter_wV7nkF": {
+          "type": "filter",
+          "settings": {
+            "label": "Scenario",
+            "key": "scenario"
+          }
+        }
+      },
+      "block_order": [
+        "filter_HCcRwj",
+        "filter_QyUTYA",
+        "filter_cw7fHH",
+        "filter_wV7nkF"
+      ],
+      "name": "Dynamic Product Finder",
+      "settings": {
+        "collection": "finder-collection",
+        "heading": "Find Your Device",
+        "product_limit": 24,
+        "results_layout": "grid",
+        "grid_columns_desktop": 3,
+        "apply_button_label": "Apply Filters",
+        "clear_button_label": "Clear",
+        "add_to_cart_label": "Add to Cart",
+        "buy_now_label": "Buy Now"
+      }
+    }
+  },
+  "order": [
+    "banner",
+    "dynamic_finder_HLjD3C"
+  ]
+}

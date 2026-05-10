@@ -1,0 +1,327 @@
+{% stylesheet %}
+  .banner-slider {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin: 0 auto;
+    overflow: hidden;
+    border-radius: 8px;
+  }
+  .banner-slides {
+    display: flex;
+    transition: transform 0.8s ease-in-out;
+  }
+  .banner-slide {
+    min-width: 100%;
+    position: relative;
+  }
+  .banner-slide img {
+    width: 100%;
+    height: 500px;
+    object-fit: cover;
+    display: block;
+  }
+  .banner-slide-placeholder {
+    width: 100%;
+    height: 500px;
+    background: linear-gradient(135deg, #1f2937 0%, #4b5563 100%);
+    display: block;
+  }
+  .banner-overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .banner-content {
+    text-align: center;
+    color: white;
+    z-index: 2;
+  }
+  .banner-title {
+    font-size: 3.5rem;
+    font-weight: 700;
+    margin-bottom: 15px;
+    text-shadow: 2px 2px 4px rgba(0, 0, 0, 0.5);
+  }
+  .banner-subtitle {
+    font-size: 1.5rem;
+    margin-bottom: 25px;
+    text-shadow: 1px 1px 3px rgba(0, 0, 0, 0.5);
+  }
+  .banner-btn {
+    background: #fff;
+    color: #333;
+    padding: 15px 35px;
+    font-size: 1rem;
+    font-weight: 600;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    text-decoration: none;
+    display: inline-block;
+  }
+  .banner-btn:hover {
+    background: #333;
+    color: #fff;
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+  }
+  .slider-controls {
+    position: absolute;
+    bottom: 30px;
+    left: 50%;
+    transform: translateX(-50%);
+    display: flex;
+    gap: 10px;
+    z-index: 3;
+  }
+  .slider-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    transition: all 0.3s ease;
+    border: 2px solid transparent;
+  }
+  .slider-dot.active {
+    background: #fff;
+    transform: scale(1.3);
+  }
+  .slider-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    background: rgba(0, 0, 0, 0.4);
+    color: white;
+    border: none;
+    padding: 15px 20px;
+    font-size: 1.5rem;
+    cursor: pointer;
+    z-index: 3;
+    transition: background 0.3s ease;
+  }
+  .slider-nav:hover {
+    background: rgba(0, 0, 0, 0.7);
+  }
+  .slider-nav.prev {
+    left: 20px;
+  }
+  .slider-nav.next {
+    right: 20px;
+  }
+  @media (max-width: 768px) {
+    .banner-title {
+      font-size: 2.5rem;
+    }
+    .banner-subtitle {
+      font-size: 1.2rem;
+    }
+    .banner-slide img,
+    .banner-slide-placeholder {
+      height: 300px;
+    }
+    .slider-nav {
+      padding: 10px 15px;
+      font-size: 1.2rem;
+    }
+  }
+  @media (max-width: 480px) {
+    .banner-title {
+      font-size: 1.8rem;
+    }
+    .banner-subtitle {
+      font-size: 1rem;
+    }
+    .banner-btn {
+      padding: 12px 25px;
+      font-size: 0.9rem;
+    }
+    .banner-slide img,
+    .banner-slide-placeholder {
+      height: 200px;
+    }
+    .slider-nav {
+      padding: 8px 12px;
+      font-size: 1rem;
+    }
+  }
+{% endstylesheet %}
+
+<div class="banner-slider">
+  <div class="banner-slides" id="bannerSlides">
+    {% for block in section.blocks %}
+      {%- assign is_first_slide = forloop.first -%}
+      <div class="banner-slide">
+        {% if block.settings.image %}
+          <img
+            src="{{ block.settings.image | image_url: width: 1920 }}"
+            alt="{{ block.settings.title | escape }}"
+            width="1920"
+            height="500"
+            {% if is_first_slide %}loading="eager" fetchpriority="high"{% else %}loading="lazy" decoding="async"{% endif %}
+          >
+        {% else %}
+          <div class="banner-slide-placeholder" role="img" aria-label="{{ block.settings.title | default: 'Banner image' | escape }}"></div>
+        {% endif %}
+        <div class="banner-overlay">
+          <div class="banner-content">
+            {% if is_first_slide %}
+              <h1 class="banner-title">{{ block.settings.title }}</h1>
+            {% else %}
+              <h2 class="banner-title">{{ block.settings.title }}</h2>
+            {% endif %}
+            <p class="banner-subtitle">{{ block.settings.subtitle }}</p>
+            {% if block.settings.button_text and block.settings.button_url %}
+              <a href="{{ block.settings.button_url }}" class="banner-btn">{{ block.settings.button_text }}</a>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    {% endfor %}
+  </div>
+
+  <button class="slider-nav prev" id="prevBtn" type="button" aria-label="Previous slide" title="Previous slide" onclick="changeBanner(-1)">❮</button>
+  <button class="slider-nav next" id="nextBtn" type="button" aria-label="Next slide" title="Next slide" onclick="changeBanner(1)">❯</button>
+
+  <div class="slider-controls" id="sliderControls"></div>
+</div>
+
+<script>
+  let currentSlide = 0;
+  let autoSlideTimer;
+  const totalSlides = document.querySelectorAll('.banner-slide').length;
+
+  function initSlider() {
+    renderDots();
+    updateSlider();
+    startAutoSlide();
+  }
+
+  function renderDots() {
+    const controlsContainer = document.getElementById('sliderControls');
+    for (let i = 0; i < totalSlides; i++) {
+      const dot = document.createElement('div');
+      dot.className = 'slider-dot';
+      if (i === currentSlide) dot.classList.add('active');
+      dot.onclick = () => goToSlide(i);
+      controlsContainer.appendChild(dot);
+    }
+  }
+
+  function updateSlider() {
+    const slides = document.getElementById('bannerSlides');
+    slides.style.transform = `translateX(-${currentSlide * 100}%)`;
+
+    document.querySelectorAll('.slider-dot').forEach((dot, index) => {
+      dot.classList.toggle('active', index === currentSlide);
+    });
+  }
+
+  function changeBanner(direction) {
+    currentSlide = (currentSlide + direction + totalSlides) % totalSlides;
+    updateSlider();
+    resetAutoSlide();
+  }
+
+  function goToSlide(index) {
+    currentSlide = index;
+    updateSlider();
+    resetAutoSlide();
+  }
+
+  function startAutoSlide() {
+    autoSlideTimer = setInterval(() => {
+      currentSlide = (currentSlide + 1) % totalSlides;
+      updateSlider();
+    }, 60000);
+  }
+
+  function resetAutoSlide() {
+    clearInterval(autoSlideTimer);
+    startAutoSlide();
+  }
+
+  document.addEventListener('DOMContentLoaded', initSlider);
+</script>
+
+{% schema %}
+{
+  "name": "Banner Slider",
+  "settings": [],
+  "blocks": [
+    {
+      "type": "banner_slide",
+      "name": "Slide",
+      "settings": [
+        {
+          "type": "image_picker",
+          "id": "image",
+          "label": "Banner Image"
+        },
+        {
+          "type": "text",
+          "id": "title",
+          "label": "Title",
+          "default": "Jewelry Collection"
+        },
+        {
+          "type": "text",
+          "id": "subtitle",
+          "label": "Subtitle",
+          "default": "Discover our exclusive collection"
+        },
+        {
+          "type": "text",
+          "id": "button_text",
+          "label": "Button Text",
+          "default": "Shop Now"
+        },
+        {
+          "type": "url",
+          "id": "button_url",
+          "label": "Button URL"
+        }
+      ]
+    }
+  ],
+  "presets": [
+    {
+      "name": "Banner Slider",
+      "blocks": [
+        {
+          "type": "banner_slide",
+          "settings": {
+            "title": "Elegant Jewelry",
+            "subtitle": "Timeless pieces for every occasion",
+            "button_text": "Shop Collection"
+          }
+        },
+        {
+          "type": "banner_slide",
+          "settings": {
+            "title": "Premium Diamonds",
+            "subtitle": "Luxury meets perfection",
+            "button_text": "Explore Now"
+          }
+        },
+        {
+          "type": "banner_slide",
+          "settings": {
+            "title": "Exclusive Designs",
+            "subtitle": "Handcrafted with precision",
+            "button_text": "View More"
+          }
+        }
+      ]
+    }
+  ]
+}
+{% endschema %}

@@ -1,0 +1,445 @@
+
+┌─────────────────────────────────────────────────────────────┐
+│                PAGE LOAD / SHOPIFY SECTION LOAD             │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ initSectionsFromDom()                                       │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - DOM elements with [data-dynamic-finder]                   │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Finds all finder sections                                 │
+│ - Reads section ID                                          │
+│ - Prevents duplicate mounting                               │
+│ - Calls readFinderConfig()                                  │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Config object for each section                            │
+│ - Calls mountFinder(config)                                 │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ readFinderConfig(sectionId)                                 │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - sectionId                                                 │
+│ - JSON script tag from Liquid                               │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Finds JSON script tag                                     │
+│ - Parses JSON data                                          │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Parsed configuration object                               │
+│   • products                                                │
+│   • filters                                                 │
+│   • labels                                                  │
+│   • metafields                                              │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│ mountFinder(config)                                         │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Config object                                             │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Extracts products                                         │
+│ - Extracts filters                                          │
+│ - Extracts labels                                           │
+│ - Creates helper functions                                  │
+│ - Initializes finder                                        │
+│ - Binds buttons                                             │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Fully initialized product finder                          │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+═════════════════════════════════════════════════════════════════
+                    INITIALIZATION FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ initFinder()                                                │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product data array from JSON                              │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Binds cart delegation on results container                │
+│ - Sets initial UI before user clicks Apply                  │
+│                                                             │
+│ CONDITIONS:                                                 │
+│                                                             │
+│ IF no products                                              │
+│   → Empty grid + empty-state message + count 0              │
+│                                                             │
+│ ELSE                                                        │
+│   → Empty grid + default hint (“Select filters…”)           │
+│     until Apply runs filtering                              │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Initial UI displayed                                      │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ bindButtons()                                               │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Apply button                                              │
+│ - Clear button                                              │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Adds click listeners                                      │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Apply → applyFilters()                                    │
+│ - Clear → clearFilters()                                    │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                      FILTER FLOW
+═════════════════════════════════════════════════════════════════
+
+                    USER CLICKS APPLY
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ applyFilters()                                              │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Selected dropdown values                                  │
+│ - Product metafields                                        │
+│                                                             │
+│ PROCESS:                                                    │
+│ 1. Collect active filters                                   │
+│ 2. Normalize values                                         │
+│ 3. Compare product metafields                               │
+│ 4. Keep matching products                                   │
+│                                                             │
+│ FILTER LOGIC:                                               │
+│ product metafield == selected dropdown value                │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Filtered product array                                    │
+│ - Calls render(filteredProducts)                            │
+│ - Calls updateCount()                                       │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ getMetaValues(product, key)                                 │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product                                                   │
+│ - Metafield key                                             │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Reads metafield                                           │
+│ - Splits comma/semicolon values                             │
+│ - Cleans whitespace                                         │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Array of metafield values                                 │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                     CLEAR FILTER FLOW
+═════════════════════════════════════════════════════════════════
+
+                    USER CLICKS CLEAR
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ clearFilters()                                              │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - All filter dropdowns                                      │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Resets dropdown values                                    │
+│ - Clears rendered products                                  │
+│ - Shows default empty message                               │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Empty UI state                                            │
+│ - Product count reset                                       │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    PRODUCT RENDER FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ render(products, isInitial)                                 │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product array                                             │
+│ - Initial state flag                                        │
+│                                                             │
+│ PROCESS:                                                    │
+│                                                             │
+│ IF initial state                                            │
+│   → Show default message                                    │
+│                                                             │
+│ IF no products                                              │
+│   → Show "No match found"                                   │
+│                                                             │
+│ ELSE                                                        │
+│   → Build product cards                                     │
+│   → Initialize variants                                     │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Rendered product cards                                    │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ renderDynamicCard(product, cardKey)                         │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product object                                            │
+│ - Unique card key                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Creates product HTML                                      │
+│ - Adds image                                                │
+│ - Adds price                                                │
+│ - Adds metafields                                           │
+│ - Adds Add to Cart button                                   │
+│ - Adds Buy Now button                                       │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Complete product card HTML                                │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ renderProductMetaHtml(product)                              │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product metafields                                        │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Checks visible metafields                                 │
+│ - Formats values                                            │
+│ - Builds metadata HTML                                      │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Product metadata section                                  │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                   VARIANT SYSTEM FLOW
+═════════════════════════════════════════════════════════════════
+
+┌─────────────────────────────────────────────────────────────┐
+│ initDynamicVariantCard()                                    │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Product variants                                          │
+│ - Product options                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Detects interactive options                               │
+│ - Builds variant dropdowns                                  │
+│ - Sets default variant                                      │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Interactive variant UI                                    │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ optionIsInteractive()                                       │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Variant list                                              │
+│ - Option position                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Compares variants                                         │
+│ - Checks image changes                                      │
+│ - Checks price changes                                      │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - true  → interactive dropdown                              │
+│ - false → static label                                      │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ bindInteractiveVariantCard()                                │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Variant selections                                        │
+│ - Dropdown events                                           │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Updates selected variant                                  │
+│ - Updates image                                             │
+│ - Updates price                                             │
+│ - Updates available options                                 │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Live product updates                                      │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    CART FLOW
+═════════════════════════════════════════════════════════════════
+
+                 USER CLICKS ADD TO CART
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ addToCart(variantId)                                        │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Selected variant ID                                       │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Shows loading overlay                                     │
+│ - Calls addVariant()                                        │
+│ - Refreshes cart UI                                         │
+│ - Shows success toast                                       │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Product added to Shopify cart                             │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ addVariant(variantId)                                       │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Variant ID                                                │
+│                                                             │
+│ PROCESS:                                                    │
+│ - POST request to /cart/add.js                              │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Shopify cart updated                                      │
+│ - Success/Failure response                                  │
+└─────────────────────────────────────────────────────────────┘
+
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ refreshCartUI()                                             │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Shopify cart                                              │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Fetch /cart.js                                            │
+│ - Update cart badge                                         │
+│ - Update cart counters                                      │
+│ - Dispatch cart events                                      │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Updated cart icon                                         │
+│ - Updated cart quantity                                     │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                    BUY NOW FLOW
+═════════════════════════════════════════════════════════════════
+
+                  USER CLICKS BUY NOW
+                              │
+                              ▼
+
+┌─────────────────────────────────────────────────────────────┐
+│ buyNow(variantId)                                           │
+├─────────────────────────────────────────────────────────────┤
+│ INPUT:                                                      │
+│ - Selected variant ID                                       │
+│                                                             │
+│ PROCESS:                                                    │
+│ - Add product to cart                                       │
+│ - Refresh cart                                              │
+│ - Redirect to checkout                                      │
+│                                                             │
+│ OUTPUT:                                                     │
+│ - Shopify checkout page                                     │
+└─────────────────────────────────────────────────────────────┘
+
+
+═════════════════════════════════════════════════════════════════
+                   OVERALL SYSTEM FLOW
+═════════════════════════════════════════════════════════════════
+
+PAGE LOAD
+   │
+   ▼
+READ LIQUID JSON
+   │
+   ▼
+INITIALIZE FINDER
+   │
+   ▼
+SHOW FILTERS / PRODUCTS
+   │
+   ▼
+USER SELECTS FILTERS
+   │
+   ▼
+APPLY FILTERS
+   │
+   ▼
+FILTER PRODUCTS
+   │
+   ▼
+RENDER PRODUCT CARDS
+   │
+   ▼
+INITIALIZE VARIANTS
+   │
+   ▼
+USER SELECTS VARIANT
+   │
+   ▼
+UPDATE IMAGE + PRICE
+   │
+   ▼
+USER CLICKS:
+   ├── ADD TO CART
+   │      ▼
+   │   UPDATE CART
+   │
+   └── BUY NOW
+          ▼
+       CHECKOUT
+```

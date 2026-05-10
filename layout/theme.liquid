@@ -1,0 +1,58 @@
+<!doctype html>
+<html lang="{{ request.locale.iso_code | default: 'en' }}">
+    <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+
+        <link rel="preconnect" href="https://cdn.shopify.com" crossorigin>
+        <link rel="canonical" href="{{ canonical_url }}">
+
+        <title>
+            {{ page_title }}
+            {%- if current_tags %} &ndash; tagged "{{ current_tags | join: ', ' }}"{% endif -%}
+            {%- if current_page != 1 %} &ndash; Page {{ current_page }}{% endif -%}
+            {%- unless page_title contains shop.name %} &ndash; {{ shop.name }}{% endunless -%}
+        </title>
+
+        {%- if page_description != blank -%}
+            <meta name="description" content="{{ page_description | escape }}">
+        {%- elsif template == 'index' and shop.description != blank -%}
+            <meta name="description" content="{{ shop.description | escape }}">
+        {%- endif -%}
+
+        {%- if template == 'cart' or template == 'search' -%}
+            <meta name="robots" content="noindex,follow">
+        {%- endif -%}
+
+        <meta property="og:site_name" content="{{ shop.name }}">
+        <meta property="og:url" content="{{ canonical_url }}">
+        <meta property="og:title" content="{{ page_title | escape }}">
+        {%- if page_description != blank -%}
+            <meta property="og:description" content="{{ page_description | escape }}">
+        {%- elsif template == 'index' and shop.description != blank -%}
+            <meta property="og:description" content="{{ shop.description | escape }}">
+        {%- endif -%}
+        {%- if template contains 'product' and product -%}
+            <meta property="og:type" content="product">
+            {%- if product.featured_image -%}
+                <meta property="og:image" content="{{ product.featured_image | image_url: width: 1200 }}">
+            {%- endif -%}
+        {%- elsif template contains 'collection' and collection -%}
+            <meta property="og:type" content="website">
+            {%- if collection.image -%}
+                <meta property="og:image" content="{{ collection.image | image_url: width: 1200 }}">
+            {%- endif -%}
+        {%- else -%}
+            <meta property="og:type" content="website">
+        {%- endif -%}
+        <meta name="twitter:card" content="summary_large_image">
+
+        {{ content_for_header }}
+
+        <link rel="stylesheet" type="text/css" media="all" href="{{ 'theme.css' | asset_url }}">
+    </head>
+    <body>
+        {% sections 'header-group' %}
+        {{ content_for_layout }}
+    </body>
+</html>

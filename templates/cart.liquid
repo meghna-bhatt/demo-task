@@ -1,0 +1,76 @@
+<div class="container">
+  <div class="cart-page">
+    <h1 class="cart-title">Your Cart</h1>
+
+    {% if cart.item_count > 0 %}
+      {% form 'cart', cart %}
+        <div class="cart-list">
+          {% for item in cart.items %}
+            <article class="cart-item-card">
+              <div class="cart-item-main">
+                <img
+                  src="{{ item.image | image_url: width: 180 }}"
+                  alt="{{ item.title | escape }}"
+                  class="cart-item-image"
+                  width="180"
+                  height="180"
+                  loading="lazy"
+                  decoding="async"
+                >
+                <div class="cart-item-content">
+                  <p class="cart-item-title">{{ item.product.title }}</p>
+                  {% if item.options_with_values.size > 0 %}
+                    {% for option in item.options_with_values %}
+                      <p class="cart-item-variant">{{ option.name }}: {{ option.value }}</p>
+                    {% endfor %}
+                  {% elsif item.variant.title != 'Default Title' %}
+                    <p class="cart-item-variant">{{ item.variant.title }}</p>
+                  {% endif %}
+                </div>
+              </div>
+
+              <div class="cart-item-meta">
+                <p class="cart-meta-row">
+                  <span class="cart-meta-label">Price</span>
+                  <span class="cart-meta-value">{{ item.price | money }}</span>
+                </p>
+                <p class="cart-meta-row">
+                  <span class="cart-meta-label">Quantity</span>
+                  <span class="cart-meta-value">{{ item.quantity }}</span>
+                </p>
+                <p class="cart-meta-row">
+                  <span class="cart-meta-label">Line Total</span>
+                  <span class="cart-meta-value">{{ item.line_price | money }}</span>
+                </p>
+              </div>
+
+              <div class="cart-item-actions">
+                <button
+                  type="submit"
+                  name="updates[{{ item.key }}]"
+                  value="0"
+                  class="btn cart-remove-btn"
+                  aria-label="Remove {{ item.product.title | escape }} from cart"
+                  title="Remove item"
+                >
+                  <span class="cart-visually-hidden">Remove</span>
+                </button>
+              </div>
+            </article>
+          {% endfor %}
+        </div>
+
+        <div class="cart-summary-card">
+          <p class="cart-total-label">Total</p>
+          <p class="cart-total-value">{{ cart.total_price | money }}</p>
+          <button type="submit" name="checkout" class="btn cart-checkout-btn" title="Proceed to Checkout">Proceed to Checkout</button>
+        </div>
+      {% endform %}
+    {% else %}
+      <div class="cart-empty-state">
+        <p>Your cart is empty.</p>
+        <a href="{{ routes.collections_url | append: '/all' }}" class="btn">Continue Shopping</a>
+      </div>
+    {% endif %}
+  </div>
+</div>
